@@ -224,7 +224,7 @@ constexpr uint64_t XXH3_64bits_internal(const T* input, size_t len,
     uint64_t keyed =
         (readLE32(input + len - 4) + (uint64_t(readLE32(input)) << 32)) ^
         ((readLE64(secret + 8) ^ readLE64(secret + 16)) -
-         (seed ^ (uint64_t(swap32(seed)) << 32)));
+         (seed ^ (uint64_t(swap32(uint32_t(seed))) << 32)));
     return rrmxmx(keyed, len);
   } else if (len <= 16) {
     uint64_t input_lo =
