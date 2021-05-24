@@ -6,7 +6,7 @@ CXXFLAGS = $(COMMON_CXXFLAGS) -fmax-errors=3
 CLANGXX := clang++
 CLANGXXFLAGS := $(COMMON_CXXFLAGS)
 
-LIBS := -lgtest_main -lgtest
+LIBS := -lgtest_main -lgtest -lpthread
 
 .PHONY: test-gcc test-clang clean
 
