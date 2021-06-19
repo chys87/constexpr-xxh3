@@ -49,8 +49,7 @@ interfaces provide:
 
 `Bytes` is either a string literal (either conventional `"string"` or
 UTF-8 `u8"string"`) or an object type that is "like" a string or
-a series of bytes "string-like" object type, e.g. `std::string_view`,
-`std::span<const char>`, `std::array<char, N>`.
+a byte array, e.g. `std::string_view`, `std::span<const char>`, `std::array<char, N>`.
 
 Note that null bytes embedded in string literals are considered part of the
 string, e.g. `XXH3_64bits_const("a\0b")` is equivalent to
