@@ -40,10 +40,32 @@ Copyright (C) 2012-2020 Yann Collet
 
 #include <cstddef>
 #include <cstdint>
+#include <iterator>  // for std::data, std::size
 #include <type_traits>
 #include <utility>
 
 namespace constexpr_xxh3 {
+
+template <typename T>
+concept ByteType = (std::is_integral_v<T> && sizeof(T) == 1)
+#if defined __cpp_lib_byte && __cpp_lib_byte >= 201603
+                   || std::is_same_v<T, std::byte>
+#endif
+    ;
+
+template <typename T>
+concept BytePtrType = requires (T ptr) {
+  requires std::is_pointer_v<T>;
+  requires ByteType<std::remove_cvref_t<decltype(*ptr)>>;
+};
+
+template <typename T>
+concept BytesType = requires (const T& bytes) {
+  { std::data(bytes) };
+  requires BytePtrType<decltype(std::data(bytes))>;
+  // -> std::convertible_to is not supported widely enough
+  { static_cast<size_t>(std::size(bytes)) };
+};
 
 inline constexpr uint32_t swap32(uint32_t x) noexcept {
   return ((x << 24) & 0xff000000) | ((x << 8) & 0x00ff0000) |
@@ -259,10 +281,20 @@ constexpr uint64_t XXH3_64bits_internal(const T* input, size_t len,
   }
 }
 
-template <typename T>
+template <BytesType Bytes>
+constexpr size_t bytes_size(const Bytes& bytes) noexcept {
+  return std::size(bytes);
+}
+
+template <ByteType T, size_t N>
+constexpr size_t bytes_size(T (&)[N]) noexcept {
+  return (N ? N - 1 : 0);
+}
+
+/// Basic interfaces
+
+template <ByteType T>
 consteval uint64_t XXH3_64bits_const(const T* input, size_t len) noexcept {
-  static_assert(sizeof(T) == 1);
-  static_assert(std::is_integral_v<T>);
   return XXH3_64bits_internal(
       input, len, 0, kSecret, sizeof(kSecret),
       [](const T* input, size_t len, uint64_t, const void*,
@@ -271,14 +303,10 @@ consteval uint64_t XXH3_64bits_const(const T* input, size_t len) noexcept {
       });
 }
 
-template <typename T, typename S>
+template <ByteType T, ByteType S>
 consteval uint64_t XXH3_64bits_withSecret_const(const T* input, size_t len,
                                                 const S* secret,
                                                 size_t secretSize) noexcept {
-  static_assert(sizeof(T) == 1);
-  static_assert(std::is_integral_v<T>);
-  static_assert(sizeof(S) == 1);
-  static_assert(std::is_integral_v<S>);
   return XXH3_64bits_internal(
       input, len, 0, secret, secretSize,
       [](const T* input, size_t len, uint64_t, const S* secret,
@@ -287,11 +315,9 @@ consteval uint64_t XXH3_64bits_withSecret_const(const T* input, size_t len,
       });
 }
 
-template <typename T>
+template <ByteType T>
 consteval uint64_t XXH3_64bits_withSeed_const(const T* input, size_t len,
                                               uint64_t seed) noexcept {
-  static_assert(sizeof(T) == 1);
-  static_assert(std::is_integral_v<T>);
   if (seed == 0) return XXH3_64bits_const(input, len);
   return XXH3_64bits_internal(
       input, len, seed, kSecret, sizeof(kSecret),
@@ -304,6 +330,26 @@ consteval uint64_t XXH3_64bits_withSeed_const(const T* input, size_t len,
         }
         return hashLong_64b_internal(input, len, secret, sizeof(secret));
       });
+}
+
+/// Convenient interfaces
+
+template <BytesType Bytes>
+consteval uint64_t XXH3_64bits_const(const Bytes& input) noexcept {
+  return XXH3_64bits_const(std::data(input), bytes_size(input));
+}
+
+template <BytesType Bytes, BytesType Secret>
+consteval uint64_t XXH3_64bits_withSecret_const(const Bytes& input,
+                                                const Secret& secret) noexcept {
+  return XXH3_64bits_withSecret_const(std::data(input), bytes_size(input),
+                                      std::data(secret), bytes_size(secret));
+}
+
+template <BytesType Bytes>
+consteval uint64_t XXH3_64bits_withSeed_const(const Bytes& input,
+                                              uint64_t seed) noexcept {
+  return XXH3_64bits_withSeed_const(std::data(input), bytes_size(input), seed);
 }
 
 }  // namespace constexpr_xxh3

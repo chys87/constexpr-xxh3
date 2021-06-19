@@ -1,6 +1,11 @@
 #include "constexpr-xxh3.h"
 
+#include <cstddef>
 #include <memory>
+#if __has_include(<span>)
+#include <span>
+#endif
+#include <string_view>
 
 #include "gtest/gtest.h"
 #include "xxhash.h"
@@ -70,6 +75,121 @@ constexpr size_t kN = 4096;
 constexpr auto kIdx = MakeSkippedIndices<kN>();
 constexpr auto kBytes = MakeBytes<kN>();
 constexpr auto kSecret = MakeBytes<256>();
+
+TEST(ConstexprXXH3Test, BasicCompilabilityTest) {
+  // At least these types must be supported:
+  // char, signed char, unsigned char, char8_t, std::byte
+
+  constexpr signed char kSignedChars[] = "Hello";
+  constexpr unsigned char kUnsignedChars[] = "Hello";
+#if defined __cpp_lib_byte && __cpp_lib_byte >= 201603
+  constexpr std::byte kStdBytes[]{std::byte('H'), std::byte('e'),
+                                  std::byte('l'), std::byte('l'),
+                                  std::byte('o')};
+#endif
+
+
+  {
+    constexpr uint64_t kRefValue = XXH3_64bits_const("Hello", 5);
+#if defined __cpp_char8_t && __cpp_char8_t >= 201811
+    static_assert(XXH3_64bits_const(u8"Hello", 5) == kRefValue);
+#endif
+    static_assert(XXH3_64bits_const(kSignedChars, 5) == kRefValue);
+    static_assert(XXH3_64bits_const(kUnsignedChars, 5) == kRefValue);
+#if defined __cpp_lib_byte && __cpp_lib_byte >= 201603
+    static_assert(XXH3_64bits_const(kStdBytes, 5) == kRefValue);
+#endif
+  }
+
+  {
+    constexpr uint64_t kRefValue = XXH3_64bits_withSecret_const(
+        "Hello", 5, kSecret.data(), kSecret.size());
+#if defined __cpp_char8_t && __cpp_char8_t >= 201811
+    static_assert(XXH3_64bits_withSecret_const(u8"Hello", 5, kSecret.data(),
+                                               kSecret.size()) == kRefValue);
+#endif
+    static_assert(XXH3_64bits_withSecret_const(kSignedChars, 5, kSecret.data(),
+                                               kSecret.size()) == kRefValue);
+    static_assert(XXH3_64bits_withSecret_const(kUnsignedChars, 5,
+                                               kSecret.data(),
+                                               kSecret.size()) == kRefValue);
+#if defined __cpp_lib_byte && __cpp_lib_byte >= 201603
+    static_assert(XXH3_64bits_withSecret_const(kStdBytes, 5, kSecret.data(),
+                                               kSecret.size()) == kRefValue);
+#endif
+  }
+
+  {
+    constexpr uint64_t kRefValue = XXH3_64bits_withSeed_const("Hello", 5, 1);
+#if defined __cpp_char8_t && __cpp_char8_t >= 201811
+    static_assert(XXH3_64bits_withSeed_const(u8"Hello", 5, 1) == kRefValue);
+#endif
+    static_assert(XXH3_64bits_withSeed_const(kSignedChars, 5, 1) == kRefValue);
+    static_assert(XXH3_64bits_withSeed_const(kUnsignedChars, 5, 1) ==
+                  kRefValue);
+#if defined __cpp_lib_byte && __cpp_lib_byte >= 201603
+    static_assert(XXH3_64bits_withSeed_const(kStdBytes, 5, 1) == kRefValue);
+#endif
+  }
+}
+
+TEST(ConstexprXXH3Test, ConvenienceInterfaceTest) {
+  constexpr uint64_t kRefValue = XXH3_64bits_const("Hello", 5);
+
+  // String literal
+  static_assert(XXH3_64bits_const("Hello") == kRefValue);
+#if defined __cpp_char8_t && __cpp_char8_t >= 201811
+  static_assert(XXH3_64bits_const(u8"Hello") == kRefValue);
+#endif
+
+  // Explicit const ByteType[]
+  {
+    constexpr char kBytes[]{"Hello"};
+    static_assert(XXH3_64bits_const(kBytes) == kRefValue);
+  }
+  {
+    constexpr signed char kBytes[]{"Hello"};
+    static_assert(XXH3_64bits_const(kBytes) == kRefValue);
+  }
+#if defined __cpp_lib_byte && __cpp_lib_byte >= 201603
+  {
+    constexpr std::byte kBytes[]{std::byte('H'), std::byte('e'), std::byte('l'),
+                                 std::byte('l'), std::byte('o')};
+    static_assert(XXH3_64bits_const(kBytes) == kRefValue);
+  }
+#endif
+
+  // std::string_view, std::u8string_view
+  static_assert(XXH3_64bits_const(std::string_view("Hello")) == kRefValue);
+#if defined __cpp_char8_t && __cpp_char8_t >= 201811
+  static_assert(XXH3_64bits_const(std::u8string_view(u8"Hello")) == kRefValue);
+#endif
+
+  // std::span
+#ifdef __cpp_lib_span
+  {
+    constexpr char kBytes[5]{'H', 'e', 'l', 'l', 'o'};
+    static_assert(XXH3_64bits_const(std::span(kBytes)) == kRefValue);
+    static_assert(XXH3_64bits_const(std::span<const char, std::dynamic_extent>(
+                      kBytes, sizeof(kBytes))) == kRefValue);
+  }
+#endif
+
+  // std::array
+  {
+    constexpr std::array<char, 5> kBytes{'H', 'e', 'l', 'l', 'o'};
+    static_assert(XXH3_64bits_const(std::span(kBytes)) == kRefValue);
+  }
+
+  // withSecret
+  static_assert(
+      XXH3_64bits_withSecret_const("Hello", kSecret) ==
+      XXH3_64bits_withSecret_const("Hello", 5, kSecret.data(), kSecret.size()));
+
+  // withSeed
+  static_assert(XXH3_64bits_withSeed_const("Hello", 2554) ==
+                XXH3_64bits_withSeed_const("Hello", 5, 2554));
+}
 
 TEST(ConstexprXXH3Test, Simple) {
   AssertAll(kIdx,
