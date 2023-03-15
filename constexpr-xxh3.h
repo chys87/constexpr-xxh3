@@ -2,7 +2,7 @@
 BSD 2-Clause License
 
 constexpr-xxh3 - C++20 constexpr implementation of the XXH3 64-bit variant of xxHash
-Copyright (c) 2021, chys <admin@chys.info> <chys87@github>
+Copyright (c) 2021-2023, chys <admin@chys.info> <chys87@github>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
