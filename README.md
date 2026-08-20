@@ -1,3 +1,5 @@
+
+
 constexpr-xxh3
 ==============
 
@@ -15,6 +17,8 @@ Credits to:
 
 
 ## Usage
+
+The functions are in the `constexpr_xxh3` namespace.
 
 ### Basic interfaces
 
