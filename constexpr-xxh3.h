@@ -297,7 +297,10 @@ concept HashableObject =
 #ifndef CONSTEXPR_XXH3_ALLOW_CLASS_REPR
     !std::is_class_v<T> &&
 #endif
-    !ByteType<T> &&    // To avoid overload issues.
+    // To avoid overload issues.
+    !std::is_array_v<T> &&
+    !ByteType<T> &&
+    !BytesType<T> &&
 
     // These are the restrictions for std::bit_cast to be constexpr
     // (see https://en.cppreference.com/cpp/numeric/bit_cast).

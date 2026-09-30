@@ -200,12 +200,12 @@ TEST(ConstexprXXH3Test, ObjectRepresentationTest) {
   // basic interface at compile-time without either hardcoding the results or
   // using std::bit_cast again, which would defeat the purpose of this test.
 
-  constexpr int kSingleIntInput = 42;
+  constexpr uint64_t kSingleIntInput = 42;
   constexpr double kSingleFloatInput = 3.141592653589793;
 
   struct ClassTestMock
   {
-    int integer;
+    uint64_t integer;
     double floating_point;
   };
   constexpr ClassTestMock kSingleClassInput = {kSingleIntInput,
