@@ -38,14 +38,6 @@ Types `T` and `S` can be any of the following:
 * `char8_t`
 * `std::byte`
 
-We are unable to provide a constexpr interface with parameter type
-`const void*` because of limitation imposed by the C++ standard, which
-apparently does not want constexpr evaluation to depend on byte
-representation.  This means that we cannot directly hash,
-for example, a structure, at compile time, unless we explicitly copy it
-member-wise to an array of bytes and manually take care of
-memory layout (including padding) and endianness.
-
 ### Convenient interfaces
 
 In a constexpr context, it is often more convenient to be able to pass the
@@ -81,6 +73,53 @@ constexpr uint64_t hash = XXH3_64bits_const(bytes);
 This is unfortunate, but there appears to be no simple way to work it around.
 For now, we have to use `XXH3_64bits_const(bytes, sizeof(bytes))`
 or `XXH3_64bits_const(std::span(bytes))` in this case.
+
+### Hashing object representations
+
+The library also provides interfaces for hashing the representation of an
+object directly, such as `int`, `float` and even `struct`/`class`:
+
+* `XXH3_64bits_const(const T& input)`
+* `XXH3_64bits_withSecret_const(const T& input, const Secret& secret)`
+* `XXH3_64bits_withSeed_const(const T& input, uint64_t seed)`
+
+For arrays of hashable objects, corresponding overloads are also provided:
+
+* `XXH3_64bits_const(const T (&input)[N])`
+* `XXH3_64bits_withSecret_const(const T (&input)[N], const Secret& secret)`
+* `XXH3_64bits_withSeed_const(const T (&input)[N], uint64_t seed)`
+
+For an object to be hashable through this interface, it must:
+* be trivially copyable;
+* not be a union type;
+* not be a pointer type;
+* not be a pointer to member type;
+* not be a volatile-qualified type;
+* not be a structure/class (unless explicitly allowed).
+
+Keep in mind that this interface performs a copy of the representation of the
+object/array about to be hashed, which introduce a usually negligible overhead
+for the intended use cases.
+
+#### For structures/classes
+
+Those objects are a special edge case, as they are disabled by default because
+they can be a safety hazard.
+
+Indeed, these interfaces operate on the object's representation rather than its
+semantics, so the resulting hashes are not guaranteed to be stable, due, for
+example, to inserted padding and pointer fields.
+
+Padding can even cause the compiler to reject the code because it may contain
+indeterminate values, especially on GCC. Therefore, one must be aware of all
+these potential caveats before attempting to hash structures.
+
+The recommended approach is not to enable this functionality, but rather to
+create your own semantically meaningful, per-field hasher using the available
+interfaces.
+
+To allow structures and classes in the aforementioned interfaces, define
+`CONSTEXPR_XXH3_ALLOW_CLASS_REPR`.
 
 ## TODO
 
