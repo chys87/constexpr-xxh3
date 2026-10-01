@@ -2,7 +2,7 @@
 BSD 2-Clause License
 
 constexpr-xxh3 - C++20 constexpr implementation of the XXH3 64-bit variant of xxHash
-Copyright (c) 2021-2023, chys <admin@chys.info> <chys87@github>
+Copyright (c) 2021-2026, chys <admin@chys.info> <chys87@github>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@ Copyright (C) 2012-2020 Yann Collet
 #include <iterator>  // for std::data, std::size
 #include <type_traits>
 #include <utility>
+#include <bit>       // for std::bit_cast
 
 namespace constexpr_xxh3 {
 
@@ -291,6 +292,22 @@ constexpr size_t bytes_size(T (&)[N]) noexcept {
   return (N ? N - 1 : 0);
 }
 
+template <typename T>
+concept HashableObject =
+#ifndef CONSTEXPR_XXH3_ALLOW_CLASS_REPR
+    !std::is_class_v<T> &&
+#endif
+    // To avoid overload issues.
+    !std::is_array_v<T> &&
+    !ByteType<T> &&
+    !BytesType<T> &&
+
+    // These are the restrictions for std::bit_cast to be constexpr
+    // (see https://en.cppreference.com/cpp/numeric/bit_cast).
+    std::is_object_v<T> && !std::is_union_v<T> && !std::is_pointer_v<T> &&
+    !std::is_member_pointer_v<T> && !std::is_volatile_v<T> &&
+    std::is_trivially_copyable_v<T>;
+
 /// Basic interfaces
 
 template <ByteType T>
@@ -350,6 +367,58 @@ template <BytesType Bytes>
 consteval uint64_t XXH3_64bits_withSeed_const(const Bytes& input,
                                               uint64_t seed) noexcept {
   return XXH3_64bits_withSeed_const(std::data(input), bytes_size(input), seed);
+}
+
+/*
+ *  For C++ object representations.
+ * 
+ *  To allow the hashing of structures and classes, define CONSTEXPR_XXH3_ALLOW_CLASS_REPR.
+ */
+
+template <HashableObject T>
+consteval uint64_t XXH3_64bits_const(const T& input) noexcept {
+  auto bytes = std::bit_cast<std::array<std::byte, sizeof(T)>>(input);
+  return XXH3_64bits_const(bytes.data(), bytes.size());
+}
+
+template <HashableObject T, BytesType Secret>
+consteval uint64_t XXH3_64bits_withSecret_const(const T& input,
+                                                const Secret& secret) noexcept {
+  auto bytes = std::bit_cast<std::array<std::byte, sizeof(T)>>(input);
+  return XXH3_64bits_withSecret_const(bytes.data(), bytes.size(),
+                                      std::data(secret), bytes_size(secret));
+}
+
+template <HashableObject T>
+consteval uint64_t XXH3_64bits_withSeed_const(const T& input,
+                                              uint64_t seed) noexcept {
+  auto bytes = std::bit_cast<std::array<std::byte, sizeof(T)>>(input);
+  return XXH3_64bits_withSeed_const(bytes.data(), bytes.size(), seed);
+}
+
+/*
+ *  For arrays of those objects.
+ */
+
+template <HashableObject T, size_t N>
+consteval uint64_t XXH3_64bits_const(const T (&input)[N]) noexcept {
+  auto bytes = std::bit_cast<std::array<std::byte, (sizeof(T) * N)>>(input);
+  return XXH3_64bits_const(bytes.data(), bytes.size());
+}
+
+template <HashableObject T, BytesType Secret, size_t N>
+consteval uint64_t XXH3_64bits_withSecret_const(const T (&input)[N],
+                                                const Secret& secret) noexcept {
+  auto bytes = std::bit_cast<std::array<std::byte, (sizeof(T) * N)>>(input);
+  return XXH3_64bits_withSecret_const(bytes.data(), bytes.size(),
+                                      std::data(secret), bytes_size(secret));
+}
+
+template <HashableObject T, size_t N>
+consteval uint64_t XXH3_64bits_withSeed_const(const T (&input)[N],
+                                              uint64_t seed) noexcept {
+  auto bytes = std::bit_cast<std::array<std::byte, (sizeof(T) * N)>>(input);
+  return XXH3_64bits_withSeed_const(bytes.data(), bytes.size(), seed);
 }
 
 }  // namespace constexpr_xxh3

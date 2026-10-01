@@ -1,4 +1,4 @@
-COMMON_CXXFLAGS := -DXXH_INLINE_ALL -O2 -Wall -Wextra -std=c++20 -I..
+COMMON_CXXFLAGS := -DXXH_INLINE_ALL -DCONSTEXPR_XXH3_ALLOW_CLASS_REPR -O2 -Wall -Wextra -std=c++20 -I..
 
 CXX := g++
 CXXFLAGS = $(COMMON_CXXFLAGS) -fmax-errors=3

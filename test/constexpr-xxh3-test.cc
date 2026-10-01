@@ -10,6 +10,10 @@
 #include "gtest/gtest.h"
 #include "xxhash.h"
 
+#ifndef CONSTEXPR_XXH3_ALLOW_CLASS_REPR
+#error "CONSTEXPR_XXH3_ALLOW_CLASS_REPR macro modifier needs to be defined to test the full API."
+#endif
+
 namespace {
 
 using namespace constexpr_xxh3;
@@ -189,6 +193,77 @@ TEST(ConstexprXXH3Test, ConvenienceInterfaceTest) {
   // withSeed
   static_assert(XXH3_64bits_withSeed_const("Hello", 2554) ==
                 XXH3_64bits_withSeed_const("Hello", 5, 2554));
+}
+
+TEST(ConstexprXXH3Test, ObjectRepresentationTest) {
+  // Tests are done at runtime, because you can't feed these inputs into the
+  // basic interface at compile-time without either hardcoding the results or
+  // using std::bit_cast again, which would defeat the purpose of this test.
+
+  constexpr uint64_t kSingleIntInput = 42;
+  constexpr double kSingleFloatInput = 3.141592653589793;
+
+  struct ClassTestMock
+  {
+    uint64_t integer;
+    double floating_point;
+  };
+  constexpr ClassTestMock kSingleClassInput = {kSingleIntInput,
+                                               kSingleFloatInput};
+                                               
+  ASSERT_EQ(XXH3_64bits_const(kSingleIntInput),
+            XXH3_64bits(&kSingleIntInput, sizeof(kSingleIntInput)));
+  ASSERT_EQ(XXH3_64bits_const(kSingleFloatInput),
+            XXH3_64bits(&kSingleFloatInput, sizeof(kSingleFloatInput)));
+  ASSERT_EQ(XXH3_64bits_const(kSingleClassInput),
+            XXH3_64bits(&kSingleClassInput, sizeof(kSingleClassInput)));
+
+  // withSecret
+  
+  ASSERT_EQ(XXH3_64bits_withSecret_const(kSingleIntInput, kSecret),
+            XXH3_64bits_withSecret(&kSingleIntInput, sizeof(kSingleIntInput),
+                                   kSecret.data(), kSecret.size()));
+  ASSERT_EQ(
+      XXH3_64bits_withSecret_const(kSingleFloatInput, kSecret),
+      XXH3_64bits_withSecret(&kSingleFloatInput, sizeof(kSingleFloatInput),
+                             kSecret.data(), kSecret.size()));
+  ASSERT_EQ(
+      XXH3_64bits_withSecret_const(kSingleClassInput, kSecret),
+      XXH3_64bits_withSecret(&kSingleClassInput, sizeof(kSingleClassInput),
+                             kSecret.data(), kSecret.size()));
+
+  // withSeed
+
+  constexpr uint64_t kSeed = 0x2554;
+
+  ASSERT_EQ(XXH3_64bits_withSeed_const(kSingleIntInput, kSeed),
+            XXH3_64bits_withSeed(&kSingleIntInput, sizeof(kSingleIntInput),
+                                 kSeed));
+  ASSERT_EQ(XXH3_64bits_withSeed_const(kSingleFloatInput, kSeed),
+            XXH3_64bits_withSeed(&kSingleFloatInput, sizeof(kSingleFloatInput),
+                                 kSeed));
+  ASSERT_EQ(XXH3_64bits_withSeed_const(kSingleClassInput, kSeed),
+            XXH3_64bits_withSeed(&kSingleClassInput, sizeof(kSingleClassInput),
+                                 kSeed));
+
+  constexpr std::array<ClassTestMock, 2> kMultipleClassInput = {
+      kSingleClassInput, kSingleClassInput};
+
+  // Arrays of objects
+  ASSERT_EQ(
+      XXH3_64bits_const(kMultipleClassInput),
+      XXH3_64bits(kMultipleClassInput.data(), sizeof(kMultipleClassInput)));
+
+  // Arrays with secret
+  ASSERT_EQ(XXH3_64bits_withSecret_const(kMultipleClassInput, kSecret),
+            XXH3_64bits_withSecret(kMultipleClassInput.data(),
+                                   sizeof(kMultipleClassInput), kSecret.data(),
+                                   kSecret.size()));
+
+  // Arrays with seed
+  ASSERT_EQ(XXH3_64bits_withSeed_const(kMultipleClassInput, kSeed),
+            XXH3_64bits_withSeed(kMultipleClassInput.data(),
+                                 sizeof(kMultipleClassInput), kSeed));
 }
 
 TEST(ConstexprXXH3Test, Simple) {
